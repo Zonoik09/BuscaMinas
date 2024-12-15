@@ -7,32 +7,47 @@ void main() {
   List<List<String>> tablero = generarTablero(columnes, files);
   List<List<String>> tableroConBombas = generarTableroConBombas(columnes, files);
   bool juegoTerminado = false;
+  bool modoTrampa = false;
   int jugadas = 0;
 
   while (!juegoTerminado) {
-    imprimirTablero(tablero);
-    print("Escriu una comanda:");
+    // Mostrar los tableros dependiendo del modo trampa
+    if (modoTrampa) {
+      imprimirTableroConBombas(tablero, tableroConBombas);
+    } else {
+      imprimirTablero(tablero);
+    }
+
+    print("\nEscriu una comanda:");
     String? input = stdin.readLineSync();
 
     if (input == null || input.isEmpty) continue;
 
-    if (input == "cheat" || input == "trampes") {
-      imprimirTableroConBombas(tablero, tableroConBombas);
+    // Activar o desactivar el modo trampa
+    if (input.toLowerCase() == "cheat" || input.toLowerCase() == "trampes") {
+      modoTrampa = true;
+      print("Mode trampa activat! Es mostren els tresors.");
+      continue;
+    } else if (input.toLowerCase() == "disable-cheat" || input.toLowerCase() == "sortir-trampes") {
+      modoTrampa = false;
+      print("Mode trampa desactivat! Torna a jugar normalment.");
       continue;
     }
 
-    if (input == "help" || input == "ajuda") {
-      print("""
-Comandes disponibles:
+    // Mostrar ayuda
+    if (input.toLowerCase() == "help" || input.toLowerCase() == "ajuda") {
+      print("""Comandes disponibles:
 - [lletra][número]: Escollir casella (exemple: B5)
 - [lletra][número] flag o bandera: Posar o treure una bandera
-- cheat o trampes: Mostrar el tauler amb les mines
+- cheat o trampes: Mostrar el tauler amb les mines (activar mode trampa)
+- disable-cheat o sortir-trampes: Amagar el tauler amb les mines
 - help o ajuda: Mostrar aquest missatge
       """);
       continue;
     }
 
-    RegExp regex = RegExp(r"^([a-fA-F])(\d+)(\s*(flag|bandera))?");
+    // Validar entrada de jugadas
+    RegExp regex = RegExp(r"^([a-fA-F])(\d+)(\s*(flag|FLAG|bandera|BANDERA))?$");
     Match? match = regex.firstMatch(input);
 
     if (match != null) {
@@ -48,22 +63,23 @@ Comandes disponibles:
       }
 
       if (esBandera) {
-        if (tablero[fila + 1][columna + 1] == "#") {
-          tablero[fila + 1][columna + 1] = "·";
-        } else if (tablero[fila + 1][columna + 1] == "·") {
-          tablero[fila + 1][columna + 1] = "#";
+        bool banderaColocada = colocaBandera(tablero, columna, fila);
+        if (banderaColocada) {
+          print("Bandera colocada en $filaLetra${columna + 1}");
         } else {
-          print("No pots posar una bandera aquí!");
+          print("Bandera retirada de $filaLetra${columna + 1}");
         }
       } else {
+        // Destapar casilla
         if (destapaCasella(tablero, tableroConBombas, columna, fila, jugadas == 0, true)) {
-          print("Has perdut! 💣");
+          print("Has perdut!");
           imprimirTableroConBombas(tablero, tableroConBombas);
           juegoTerminado = true;
         } else {
           jugadas++;
         }
 
+        // Verificar si se ha ganado el juego
         if (jocCompletat(tablero, tableroConBombas)) {
           print("Enhorabona! Has completat el tauler en $jugadas jugades.");
           imprimirTableroConBombas(tablero, tableroConBombas);
@@ -123,6 +139,21 @@ void colocarBombas(List<List<String>> tablero, int columnes, int files) {
   anadirBombas(columnes ~/ 2, columnes - 1, files ~/ 2, files - 1, bombasPorCuadrante);
 }
 
+bool colocaBandera(List<List<String>> tablero, int columna, int fila) {
+  if (tablero[fila + 1][columna + 1] == "#") {
+    // Si ya hay una bandera, la quita
+    tablero[fila + 1][columna + 1] = "·";
+    return false; // Indica que se ha retirado la bandera
+  } else if (tablero[fila + 1][columna + 1] == "·") {
+    // Si está vacía, coloca la bandera
+    tablero[fila + 1][columna + 1] = "#";
+    return true; // Indica que se ha colocado la bandera
+  } else {
+    print("No puedes colocar una bandera aquí!");
+    return false;
+  }
+}
+
 bool destapaCasella(List<List<String>> tablero, List<List<String>> tableroConBombas, int x, int y, bool esPrimeraJugada, bool esJugadaUsuari) {
   if (x < 0 || x >= tablero[0].length - 1 || y < 0 || y >= tablero.length - 1 || tablero[y + 1][x + 1] != "·") {
     return false;
@@ -175,16 +206,28 @@ int comptaMinesAdjacents(List<List<String>> tablero, int x, int y) {
       if (dx != 0 || dy != 0) {
         int nx = x + dx;
         int ny = y + dy;
-        if (nx >= 0 && nx < tablero[0].length - 1 && ny >= 0 && ny < tablero.length - 1) {
-          if (tablero[ny + 1][nx + 1] == "*") {
-            comptador++;
-          }
+
+        if (nx >= 0 && nx < tablero[0].length - 1 && ny >= 0 && ny < tablero.length - 1 && tablero[ny + 1][nx + 1] == "*") {
+          comptador++;
         }
       }
     }
   }
 
   return comptador;
+}
+
+void imprimirTablero(List<List<String>> tablero) {
+  for (var fila in tablero) {
+    print(fila.join(" "));
+  }
+}
+
+void imprimirTableroConBombas(List<List<String>> tablero, List<List<String>> tableroConBombas) {
+  print("Tauler amb trampa activat!");
+  for (int i = 0; i < tablero.length; i++) {
+    print(tablero[i].join(' ') + "   " + tableroConBombas[i].join(' '));
+  }
 }
 
 bool jocCompletat(List<List<String>> tablero, List<List<String>> tableroConBombas) {
@@ -197,19 +240,3 @@ bool jocCompletat(List<List<String>> tablero, List<List<String>> tableroConBomba
   }
   return true;
 }
-
-void imprimirTablero(List<List<String>> tablero) {
-  for (var fila in tablero) {
-    print(fila.join(' '));
-  }
-}
-
-void imprimirTableroConBombas(List<List<String>> tablero, List<List<String>> tableroConBombas) {
-  print("Tauler visible:");
-  imprimirTablero(tablero);
-  print("\nTauler amb mines:");
-  for (var i = 1; i < tableroConBombas.length; i++) {
-    print(tableroConBombas[i].join(' '));
-  }
-}
-
